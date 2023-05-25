@@ -1,3 +1,3 @@
 # SteganographyOnImages
-
+buna ziua 
 Documentatia va fi pusa curand...
