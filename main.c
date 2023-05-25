@@ -9,15 +9,12 @@ int main(int argc, const char *argv[]) {
         return 0;
     }
 
-    char *fileType = malloc(5 * sizeof(char));
     char *command = malloc(5 * sizeof(char));
 
-    strcpy(fileType, argv[1]);
-    strcpy(command, argv[2]);
+    strcpy(command, argv[1]);
 
     executeCommand(command, argv);
 
-    free(fileType);
     free(command);
 
     return 0;
