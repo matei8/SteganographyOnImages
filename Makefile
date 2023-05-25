@@ -1,5 +1,5 @@
 build:
-	gcc -g main.c comandsFunctions.c codeDecode.c -o steg
+	gcc -o1 main.c comandsFunctions.c codeDecode.c -o steg
 
 run:
 	./steg

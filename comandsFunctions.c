@@ -31,7 +31,7 @@ void printHelpMenu() {
     printf("\t  -t [file1] [file2]\n");
     printf("\t  -l [log_file] [file1] [file2]\n");
     printf("\t  -lc [log_file]\n");
-    printf("\t  -s print size of input and output files\n");
+    printf("\t  -s [file1] [file2]\n");
     printf("\n");
 
 }
@@ -76,41 +76,9 @@ void getFileSize(const char *filePaths[]) {
     fclose(output);
 }
 
-void readAndDecode(const char *filePaths[]) {
-    unsigned int width, height, max_color;
-    unsigned int i, j;
-    unsigned char red, green, blue;
-    char format[dimensiune_format];
-    char word[lungime_maxima];
 
-    // Deschiderea fisierului care contine imaginea cu mesajul secret codificat
-    FILE *input = fopen(filePaths[2], "rb");
 
-    fscanf(input, "%s", format);   //Formatul
-    fscanf(input, "%u", &width);   // Latimea
-    fscanf(input, "%u", &height);  // Inaltimea
-    fscanf(input, "%u", &max_color);   // Valoarea maxima pentru culoare
-
-    char newline_buffer = '\n';
-    fscanf(input, "%c", &newline_buffer);
-
-    TMatrice **image = (TMatrice**)malloc(height * sizeof(TMatrice*));
-    for(i = 0; i < height; i++) {
-        image[i] = (TMatrice*)malloc(width * sizeof(TMatrice));
-    }
-
-    // Citirea matricei de pixeli din noul fișierul de intrare (cel care contine mesajul secret codificat)
-    for(i = 0; i < height; i++) {
-        for(j = 0; j< width; j++) {
-            fread(&red, sizeof(char), 1, input);
-            fread(&green, sizeof(char), 1, input);
-            fread(&blue, sizeof(char), 1, input);
-            image[i][j].r = red;
-            image[i][j].g = green;
-            image[i][j].b = blue;
-        }
-    }
-
+void readAndDecode(TMatrice **image, unsigned int width, unsigned int height) {
     // Apelarea functiei de decodificare
     char cuvant2[lungime_maxima];
     decodifica(cuvant2, image, lungime_maxima, width);
@@ -120,16 +88,31 @@ void readAndDecode(const char *filePaths[]) {
     char *p = strchr(cuvant2,'$');
     p[0] = '\0';
     printf("%s\n",cuvant2);
+}
 
-    // Eliberarea memoriei alocate
-    for (i = 0; i < height; i++) {
-        free(image[i]);
+void readAndCode(unsigned int max_color, unsigned int height, unsigned int width, TMatrice **a, const char *filePaths[], FILE *output) {
+    // Codificarea și scrierea informațiilor în fișierul de ieșire
+    if (sizeof(char) * lungime_maxima > height * width * 3) {
+        printf("Mesajul secret este prea lung pentru a fi codificat\n");
+        return;
     }
 
-    free(image);
+    // Apelarea functiei de codificare
+    code(a, width, filePaths);
 
-    //Inchiderea fisierului
-    fclose(input);
+    fprintf(output, "%s\n", "P6");
+    fprintf(output, "%u %u\n", width, height);
+    fprintf(output, "%u\n", max_color);
+
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+            fwrite(&a[i][j].r, sizeof(char), 1, output);
+            fwrite(&a[i][j].g, sizeof(char), 1, output);
+            fwrite(&a[i][j].b, sizeof(char), 1, output);
+        }
+    }
+
+    // Inchiderea fisierului care contine imaginea cu mesajul secret codificat
 }
 
 void executeCommand(const char *command, const char *filePaths[]) {
@@ -147,82 +130,64 @@ void executeCommand(const char *command, const char *filePaths[]) {
     } else if (strcmp(command, "-s") == 0) {
         getFileSize(filePaths);
         return;
-    } else if (strcmp(command, "-d") == 0) {
-        readAndDecode(filePaths);
-    } else if (strcmp(command, "-c") == 0) {
-        printf("Atentie! Mesajul care se doreste a fi codificat trebuie sa se termine in '$' \n");
-
+    } else if (strcmp(command, "-d") == 0 || strcmp(command, "-c") == 0) {
         // Deschiderea fișierelor
-        FILE *f1 = fopen(filePaths[2],"rb");
-        FILE *f2 = fopen(filePaths[3], "wb");
-        FILE *f3 = fopen(filePaths[4],"rt");
+        FILE *input, *output, *secret_message;
+        char word[lungime_maxima];
+        input = fopen(filePaths[2], "rb");
 
-        unsigned int latime,inaltime,culoare_maxima;
-        unsigned int i,j;
-        unsigned char rosu,verde,albastru;
-        char sir[dimensiune_format];
-        char cuvant[lungime_maxima];
+        unsigned int width, height, max_color;
+        unsigned int i, j;
+        unsigned char red, green, blue;
+        char format[dimensiune_format];
 
-        fgets(cuvant, sizeof(cuvant), f3);  //textul de codificat
-
-        fscanf(f1,"%s",sir);    //Formatul
-        fscanf(f1,"%u",&latime);    // Latimea
-        fscanf(f1,"%u",&inaltime);  // Inaltimea
-        fscanf(f1,"%u",&culoare_maxima);    // Valoarea maxima pentru culoare
+        fscanf(input, "%s", format);   //Formatul
+        fscanf(input, "%u", &width);    // Latimea
+        fscanf(input, "%u", &height);  // Inaltimea
+        fscanf(input, "%u", &max_color);    // Valoarea maxima pentru culoare
 
         char newline = '\n';
-        fscanf(f1,"%c",&newline);
+        fscanf(input, "%c", &newline);
 
-        TMatrice **a = (TMatrice**)malloc(inaltime*sizeof(TMatrice*));
+        TMatrice **a = (TMatrice**)malloc(height * sizeof(TMatrice*));
         if (a == NULL)
             return;
 
-        for (i = 0;i < inaltime;i++) {
-            a[i] = (TMatrice*)malloc(latime*sizeof(TMatrice));
+        for (i = 0; i < height; i++) {
+            a[i] = (TMatrice*)malloc(width * sizeof(TMatrice));
             if (a[i] == NULL)
                 return;
         }
 
         // Citirea matricei de pixeli din fișierul de intrare
-        for (i = 0; i < inaltime; i++) {
-            for (j = 0; j< latime; j++) {
-                fread(&rosu,sizeof(char),1,f1);
-                fread(&verde,sizeof(char),1,f1);
-                fread(&albastru,sizeof(char),1,f1);
-                a[i][j].r = rosu;
-                a[i][j].g = verde;
-                a[i][j].b = albastru;
+        for (i = 0; i < height; i++) {
+            for (j = 0; j < width; j++) {
+                fread(&red, sizeof(char), 1, input);
+                fread(&green, sizeof(char), 1, input);
+                fread(&blue, sizeof(char), 1, input);
+                a[i][j].r = red;
+                a[i][j].g = green;
+                a[i][j].b = blue;
             }
         }
+//
+        if (strcmp(command, "-d") == 0) {
+             readAndDecode(a, width, height);
+        } else {
+            printf("Atentie! Mesajul care se doreste a fi codificat trebuie sa se termine in '$' \n");
+            output = fopen(filePaths[3], "wb");
+            secret_message = fopen(filePaths[4], "rt");
+            fgets(word, sizeof(word), secret_message);  //textul de codificat
 
-        // Codificarea și scrierea informațiilor în fișierul de ieșire
-        if (sizeof(cuvant) > inaltime * latime * 3) {
-            printf("Mesajul secret este prea lung pentru a fi codificat\n");
-            return;
+            readAndCode(max_color, height, width, a, filePaths, output);
+            fclose(output);
+            fclose(secret_message);
         }
-
-        // Apelarea functiei de codificare
-        code(a, latime, filePaths);
-
-        fprintf(f2, "%s\n", sir);
-        fprintf(f2, "%u %u\n", latime, inaltime);
-        fprintf(f2, "%u\n", culoare_maxima);
-
-        for (i = 0; i < inaltime; i++) {
-            for (j = 0; j < latime; j++) {
-                fwrite(&a[i][j].r, sizeof(char), 1, f2);
-                fwrite(&a[i][j].g, sizeof(char), 1, f2);
-                fwrite(&a[i][j].b, sizeof(char), 1, f2);
-            }
-        }
-
-        // Inchiderea fisierului care contine imaginea cu mesajul secret codificat
-        fclose(f2);
-
-        // Eliberarea memoriei alocate
-        for (unsigned int i = 0; i < inaltime; i++) {
+//        // Eliberarea memoriei alocate
+        for (unsigned int i = 0; i < height; i++) {
             free(a[i]);
         }
         free(a);
+        fclose(input);
     }
 }
