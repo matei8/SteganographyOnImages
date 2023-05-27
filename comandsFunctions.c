@@ -47,11 +47,11 @@ void timestamp(const char *filePath) {
 
 void logChanges(FILE *log, const char *files[]) {
     struct stat attrib;
-    stat(files[0], &attrib);
+    stat(files[3], &attrib);
     char date[10];
     strftime(date, 10, "%d-%m-%y", gmtime(&(attrib.st_ctime)));
     fprintf(log, "File %s was modified at: %s\n", files[3], date);
-    stat(files[1], &attrib);
+    stat(files[4], &attrib);
     strftime(date, 10, "%d-%m-%y", gmtime(&(attrib.st_ctime)));
     fprintf(log, "File %s was modified at: %s\n", files[4], date);
     fclose(log);
@@ -117,7 +117,7 @@ void readAndCode(unsigned int max_color, unsigned int height, unsigned int width
 
 void executeCommand(const char *command, const char *filePaths[]) {
     if (strcmp(command, "-t") == 0) {
-        timestamp(filePaths[0]);
+        timestamp(filePaths[2]);
         return;
     } else if (strcmp(command, "-l") == 0) {
         FILE *log = fopen(filePaths[2], "aw");
